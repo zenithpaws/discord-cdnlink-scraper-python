@@ -41,7 +41,7 @@ async def on_message(message):
     await client.process_commands(message)
 
 @client.slash_command(description="Scrape attachments")
-async def scrape(ctx, videos_only: bool = False, message_amount: str = "all"):
+async def scrape(ctx, file_types: str = nextcord.SlashOption(default="all", choices=["images", "audio", "videos", "all"], description="The files types to scrape"), message_amount: str = nextcord.SlashOption(default="all", description="The amount of messages to scrape")):
     await ctx.response.defer()
 
     if message_amount.lower() == "all":
@@ -64,15 +64,25 @@ async def scrape(ctx, videos_only: bool = False, message_amount: str = "all"):
             links.append(attachment.url)
             logger.info(f"Found attachment: {attachment.url} (total: {len(links)})")
 
-    if videos_only:
-        links = [link for link in links if link.split('.')[-1].lower() in config["videoFormats"]]
+    # Filter by file types based on the category
+    if file_types == "images":
+        valid_formats = config["imageFormats"]
+    elif file_types == "audio":
+        valid_formats = config["audioFormats"]
+    elif file_types == "videos":
+        valid_formats = config["videoFormats"]
+    else:  # "all"
+        valid_formats = []
+
+    if valid_formats:
+        links = [link for link in links if link.split('.')[-1].lower() in valid_formats]
     
     links = [link for link in links if not any(keyword in link for keyword in config["excludeKeywords"])]
 
     filename = f"{config['outputFolder']}/discord_cdn_links-{datetime.now().strftime('%Y-%m-%d')}_{ctx.channel.id}.txt"
     if links:
         with open(filename, 'w') as f:
-            f.write('\n \n'.join(links))
+            f.write('\n \n'.join(f'"{link}"' for link in links))
         logger.info(f"Scrape completed and links saved to {filename}\nTotal links found: {len(links)}")
         file = nextcord.File(filename)
         await ctx.send(f"Scrape completed and links saved to `{filename}`. Total links found: {len(links)}", file=file)

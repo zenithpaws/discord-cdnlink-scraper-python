@@ -27,10 +27,10 @@ py bot.py
 ```
 6. Run the command
 ```
-/scrape [videos only true/false] [amount of messages to scrape].
+/scrape [file_types] [amount of messages to scrape].
 ```
 Both are optional, and are not needed\
-Default values are `true` and `all`
+Default values are `all` and `all`
 
 ## Want to see features added?
 Open an issue and I'll take a look and see if I can add it.
