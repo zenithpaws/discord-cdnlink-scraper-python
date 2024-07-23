@@ -1,8 +1,0 @@
-{
-    "prefix": "/",
-    "token": "your_token_here",
-    "command": "scrape",
-    "outputFolder": "./output",
-    "videoFormats": ["mp4", "mov", "webm", "avi", "wmv", "flv", "mkv", "m4v", "3gp", "m4p", "m4a", "mpg", "mpeg", "rm", "vob", "asf"],
-    "excludeKeywords": ["avatars", "icons", "banners", "emojis", "stickers"]
-}
