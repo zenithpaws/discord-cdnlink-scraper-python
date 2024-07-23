@@ -72,7 +72,7 @@ async def scrape(ctx, videos_only: bool = False, message_amount: str = "all"):
     filename = f"{config['outputFolder']}/discord_cdn_links-{datetime.now().strftime('%Y-%m-%d')}_{ctx.channel.id}.txt"
     if links:
         with open(filename, 'w') as f:
-            f.write('\n'.join(links))
+            f.write('\n \n'.join(links))
         logger.info(f"Scrape completed and links saved to {filename}\nTotal links found: {len(links)}")
         file = nextcord.File(filename)
         await ctx.send(f"Scrape completed and links saved to `{filename}`. Total links found: {len(links)}", file=file)

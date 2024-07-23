@@ -20,7 +20,7 @@ pip install -r requirements.txt
   ![Option to Enable: Message Content Intent](https://cdn.spin.rip/r/firefox_3037402965.png)
     2. Copy the token and invite the bot to your server using this link (Replace `CLIENT_ID` with your bot's client ID): `https://discord.com/api/oauth2/authorize?client_id=CLIENT_ID&permissions=274878008320&scope=bot`
   
-4. Open [config.json](config.json) and fill in the values
+4. Duplicate [config.json.example](config.json.example) rename it to `config.json` and fill in the values
 5. Run the bot
 ```bash
 py bot.py
@@ -30,7 +30,7 @@ py bot.py
 /scrape [videos only true/false] [amount of messages to scrape].
 ```
 Both are optional, and are not needed\
-Default is videos and images, all messages
+Default values are `true` and `all`
 
 ## Want to see features added?
 Open an issue and I'll take a look and see if I can add it.
