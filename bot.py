@@ -4,6 +4,8 @@ import os
 import json
 from datetime import datetime
 import logging
+import aiohttp
+from urllib.parse import urlparse
 
 # Load configuration
 with open('config.json') as f:
@@ -13,11 +15,12 @@ with open('config.json') as f:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Create output folder if it doesn't exist
+# Create output folders if they don't exist
 os.makedirs(config["outputFolder"], exist_ok=True)
+os.makedirs("output_downloaded", exist_ok=True)  # Main download folder
 
 # Bot setup
-intents = nextcord.Intents.default()
+intents = nextcord.Intents.all()
 intents.messages = True
 client = commands.Bot(command_prefix=config["prefix"], intents=intents)
 
@@ -64,6 +67,8 @@ async def scrape(ctx, file_types: str = nextcord.SlashOption(default="all", choi
             links.append(attachment.url)
             logger.info(f"Found attachment: {attachment.url} (total: {len(links)})")
 
+    logger.info(f"File types selected: {file_types}")
+
     # Filter by file types based on the category
     if file_types == "images":
         valid_formats = config["imageFormats"]
@@ -74,20 +79,152 @@ async def scrape(ctx, file_types: str = nextcord.SlashOption(default="all", choi
     else:  # "all"
         valid_formats = []
 
+    logger.info(f"Valid formats: {valid_formats}")
+
+    # Extract file extension more reliably
+    def get_file_extension(url):
+        path = urlparse(url).path
+        _, ext = os.path.splitext(path)
+        return ext[1:].lower()  # Remove the dot and convert to lower case
+
     if valid_formats:
-        links = [link for link in links if link.split('.')[-1].lower() in valid_formats]
+        links = [link for link in links if get_file_extension(link) in valid_formats]
     
+    logger.info(f"Links after format filter: {links}")
+
+    # Filter by exclude keywords
     links = [link for link in links if not any(keyword in link for keyword in config["excludeKeywords"])]
 
-    filename = f"{config['outputFolder']}/discord_cdn_links-{datetime.now().strftime('%Y-%m-%d')}_{ctx.channel.id}.txt"
-    if links:
-        with open(filename, 'w') as f:
-            f.write('\n \n'.join(f'"{link}"' for link in links))
-        logger.info(f"Scrape completed and links saved to {filename}\nTotal links found: {len(links)}")
-        file = nextcord.File(filename)
-        await ctx.send(f"Scrape completed and links saved to `{filename}`. Total links found: {len(links)}", file=file)
+    logger.info(f"Links after exclude filter: {links}")
+
+    # Create server and channel specific folders
+    guild_name = ctx.guild.name.replace('/', '_').replace('\\', '_')  # Clean up special characters
+    channel_name = ctx.channel.name.replace('/', '_').replace('\\', '_')  # Clean up special characters
+    base_folder = f"{config['outputFolder']}/{guild_name}/{channel_name}"
+    os.makedirs(base_folder, exist_ok=True)
+
+    # Create log filename
+    if file_types == "all":
+        log_filename = f"{base_folder}/scrape_links_{datetime.now().strftime('%Y-%m-%d')}.txt"
     else:
-        logger.warning("Scrape completed but no links were found.")
-        await ctx.send("Scrape completed but no links were found.")
+        log_filename = f"{base_folder}/scrape_links_{datetime.now().strftime('%Y-%m-%d')}_{file_types}.txt"
+
+    # Write the log file
+    with open(log_filename, 'w') as f:
+        if links:
+            f.write('\n\n'.join(f'"{link}"' for link in links))
+            logger.info(f"Scrape completed and links saved to {log_filename}\nTotal links found: {len(links)}")
+            file = nextcord.File(log_filename)
+            await ctx.send(f"Scrape completed and links saved to `{log_filename}`. Total links found: {len(links)}", file=file)
+        else:
+            logger.warning("Scrape completed but no links were found.")
+            await ctx.send("Scrape completed but no links were found.")
+
+@client.slash_command(description="Download attachments")
+async def download(ctx, file_types: str = nextcord.SlashOption(default="all", choices=["images", "audio", "videos", "all"], description="The files types to download"), message_amount: str = nextcord.SlashOption(default="all", description="The amount of messages to scrape")):
+    await ctx.response.defer()
+
+    if message_amount.lower() == "all":
+        message_amount = None
+        logger.info("Fetching all messages...")
+    else:
+        message_amount = int(message_amount)
+        logger.info(f"Fetching {message_amount} messages...")
+
+    messages = await fetch_all_messages(ctx.channel, message_amount)
+    links = []
+
+    for msg in reversed(messages):
+        found = [url for url in msg.content.split() if 'discordapp' in url]
+        if found:
+            links.extend(found)
+            logger.info(f"Found link: {found} (total: {len(links)})")
+
+        for attachment in msg.attachments:
+            links.append(attachment.url)
+            logger.info(f"Found attachment: {attachment.url} (total: {len(links)})")
+
+    logger.info(f"File types selected: {file_types}")
+
+    # Set valid formats and folder names
+    formats_dict = {
+        "images": config["imageFormats"],
+        "audio": config["audioFormats"],
+        "videos": config["videoFormats"]
+    }
+
+    if file_types == "all":
+        valid_formats = [fmt for fmt_list in formats_dict.values() for fmt in fmt_list]
+    else:
+        valid_formats = formats_dict.get(file_types, [])
+
+    logger.info(f"Valid formats: {valid_formats}")
+
+    # Extract file extension more reliably
+    def get_file_extension(url):
+        path = urlparse(url).path
+        _, ext = os.path.splitext(path)
+        return ext[1:].lower()  # Remove the dot and convert to lower case
+
+    if valid_formats:
+        links = [link for link in links if get_file_extension(link) in valid_formats]
+
+    logger.info(f"Links after format filter: {links}")
+
+    # Filter by exclude keywords
+    links = [link for link in links if not any(keyword in link for keyword in config["excludeKeywords"])]
+
+    logger.info(f"Links after exclude filter: {links}")
+
+    # Helper function to get a unique file path
+    def get_unique_file_path(folder, file_name):
+        base, ext = os.path.splitext(file_name)
+        counter = 1
+        new_file_name = file_name
+        while os.path.exists(os.path.join(folder, new_file_name)):
+            new_file_name = f"{base}_{counter}{ext}"
+            counter += 1
+        return new_file_name
+
+    # Create server and channel specific folders
+    guild_name = ctx.guild.name.replace('/', '_').replace('\\', '_')  # Clean up special characters
+    channel_name = ctx.channel.name.replace('/', '_').replace('\\', '_')  # Clean up special characters
+    base_folder = f"output_downloaded/{guild_name}/{channel_name}"
+    os.makedirs(base_folder, exist_ok=True)
+
+    async with aiohttp.ClientSession() as session:
+        # Create a dictionary to track files by their extensions
+        files_by_extension = {}
+
+        for link in links:
+            ext = get_file_extension(link)
+            if ext not in valid_formats:
+                continue  # Skip files that do not match valid formats
+
+            # Initialize a list for each extension folder
+            if ext not in files_by_extension:
+                files_by_extension[ext] = []
+
+            files_by_extension[ext].append(link)
+
+        # Create folders and download files
+        for ext, file_links in files_by_extension.items():
+            download_folder = f"{base_folder}/{ext}"
+            os.makedirs(download_folder, exist_ok=True)
+
+            for link in file_links:
+                file_name = os.path.basename(urlparse(link).path)
+                unique_file_name = get_unique_file_path(download_folder, file_name)
+                file_path = os.path.join(download_folder, unique_file_name)
+
+                async with session.get(link) as resp:
+                    if resp.status == 200:
+                        with open(file_path, 'wb') as f:
+                            f.write(await resp.read())
+                        logger.info(f"Downloaded file: {unique_file_name} to {download_folder}")
+                    else:
+                        logger.error(f"Failed to download file: {file_name}")
+
+    await ctx.send(f"Download completed. Files are saved in the `{base_folder}` folder with respective subfolders for each file type.")
 
 client.run(config["token"])
