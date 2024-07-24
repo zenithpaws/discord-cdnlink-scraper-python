@@ -25,12 +25,70 @@ pip install -r requirements.txt
 ```bash
 py bot.py
 ```
-6. Run the command
+6. Run the command(s)
 ```
 /scrape [file_types] [amount of messages to scrape].
 ```
 Both are optional, and are not needed\
 Default values are `all` and `all`
+
+## Bot Commands
+
+## `scrape`
+Scrapes attachments and links from the current channel.
+
+**Description:**
+- Scrapes messages from the current channel, extracting and saving links to a file.
+
+**Options:**
+- `file_types` (default: "all")
+  - **Description:** The types of files to scrape.
+  - **Choices:** images, audio, videos, all
+
+- `message_amount` (default: "all")
+  - **Description:** The number of messages to scrape. If "all", it scrapes all messages.
+  
+## `serverwidescrape`
+Scrapes attachments and links from all text channels in the server.
+
+**Description:**
+- Scrapes messages from all text channels in the server, extracting and saving links to a file.
+
+**Options:**
+- `file_types` (default: "all")
+  - **Description:** The types of files to scrape.
+  - **Choices:** images, audio, videos, all
+
+- `message_amount` (default: "all")
+  - **Description:** The number of messages to scrape. If "all", it scrapes all messages.
+
+## `download`
+Downloads attachments from the current channel.
+
+**Description:**
+- Downloads attachments from messages in the current channel, organizing them into folders based on file types.
+
+**Options:**
+- `file_types` (default: "all")
+  - **Description:** The types of files to download.
+  - **Choices:** images, audio, videos, all
+
+- `message_amount` (default: "all")
+  - **Description:** The number of messages to scrape. If "all", it scrapes all messages.
+
+## `serverwidedownload`
+Downloads attachments from all text channels in the server.
+
+**Description:**
+- Downloads attachments from all text channels in the server, organizing them into folders based on file types.
+
+**Options:**
+- `file_types` (default: "all")
+  - **Description:** The types of files to download.
+  - **Choices:** images, audio, videos, all
+
+- `message_amount` (default: "all")
+  - **Description:** The number of messages to scrape. If "all", it scrapes all messages.
 
 ## Want to see features added?
 Open an issue and I'll take a look and see if I can add it.
